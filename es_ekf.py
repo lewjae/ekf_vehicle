@@ -120,6 +120,11 @@ v_est = np.zeros([imu_f.data.shape[0], 3])  # velocity estimates
 q_est = np.zeros([imu_f.data.shape[0], 4])  # orientation estimates as quaternions
 p_cov = np.zeros([imu_f.data.shape[0], 9, 9])  # covariance matrices at each timestep
 
+p_check = p_est[0]
+v_check = v_est[0]
+q_check = q_est[0]
+p_cov_hat = p_cov[0] 
+
 # Set initial values.
 p_est[0] = gt.p[0]
 v_est[0] = gt.v[0]
@@ -134,14 +139,38 @@ lidar_i = 0
 # Since we'll need a measurement update for both the GNSS and the LIDAR data, let's make
 # a function for it.
 ################################################################################################
-def measurement_update(sensor_var, p_cov_check, y_k, p_check, v_check, q_check):
+def measurement_update(sensor_var, p_cov_check, y_m, p_check, v_check, q_check):
+    
+    # Do some intialization
+    P_k = p_cov_check
+    print("P_k: ", P_k.shape)
+
+    
     # 3.1 Compute Kalman Gain
 
+    H_k = np.zeros([3,9])
+    H_k[0:3,0:3] = np.eye(3)
+
+    M_k = np.eye(3)
+
+    R_k = sensor_var * np.eye(3)
+
+    K_k = P_k @ H_k.T @ np.linalg.inv(H_k @ P_k @ H_k.T + M_k @ R_k @ M_k.T)
+
     # 3.2 Compute error state
+    x_k = np.hstack((p_check, v_check,  q_check))
 
     # 3.3 Correct predicted state
+    y_k  = p_check 
+    temp = y_m - y_k
+    print(K_k.shape,temp.shape)
+    x_k += K_k @ (y_m - y_k).T
+    p_hat = x_k[:3]
+    v_hat = x_k[3:6]
+    q_hat = x_k[6:]
 
     # 3.4 Compute corrected covariance
+    p_cov_hat = (np.eye(9) - K_k @ H_k) @ P_k
 
     return p_hat, v_hat, q_hat, p_cov_hat
 
@@ -151,18 +180,39 @@ def measurement_update(sensor_var, p_cov_check, y_k, p_check, v_check, q_check):
 # Now that everything is set up, we can start taking in the sensor data and creating estimates
 # for our state in a loop.
 ################################################################################################
+
 for k in range(1, imu_f.data.shape[0]):  # start at 1 b/c we have initial prediction from gt
     delta_t = imu_f.t[k] - imu_f.t[k - 1]
 
+
     # 1. Update state with IMU inputs
+    u_k = np.array([imu_f.data[k],imu_w.data[k]]).reshape(6,1)
 
     # 1.1 Linearize the motion model and compute Jacobians
+    F_k = np.eye(10)
+    F_k[:3,3:6] = np.eye(3) * delta_t
+    F_k[3:6,6:] = -skew_symmetric(C_li @ imu_f.data[k]) * delta_t
+
+    L_k = np.zeros([9,6])
+    L_k[3:6,:3] = np.eye(3)
+    L_k[6:,3:] = np.eye(4)
 
     # 2. Propagate uncertainty
+    Q_k = np.zeros([6,6])
+    Q_k[:3,:3] = var_imu_f * np.eye(3)
+    Q_k[3:,3:] = var_imu_w * np.eye(3)  #input noise convariance
+    
+    p_cov_check = F_k @ p_cov_hat @ F_k.T + L_k @ Q_k  @ L_k.T
 
     # 3. Check availability of GNSS and LIDAR measurements
 
     # Update states (save)
+    print("check shape: ", p_check.shape, v_check.shape, q_check.shape)
+    p_hat, v_hat, q_hat, p_cov_hat =  measurement_update(var_lidar, p_cov_check, lidar.data[k], p_check, v_check, q_check)
+    p_est[k,:] = p_check = p_hat
+    v_est[k,:] = v_check = v_hat
+    q_est[k,:] = q_check = q_hat
+    p_cov[k,:,:] = p_cov_check = p_conv_hat
 
 #### 6. Results and Analysis ###################################################################
 
