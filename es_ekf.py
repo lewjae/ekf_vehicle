@@ -98,10 +98,10 @@ lidar.data = (C_li @ lidar.data.T).T + t_i_li
 # most important aspects of a filter is setting the estimated sensor variances correctly.
 # We set the values here.
 ################################################################################################
-var_imu_f = 1.0 #10. #1. #0.10
+var_imu_f = 1. #10. #1. #0.10
 var_imu_w = 0.01 #0.01 #0.01 #0.25
-var_gnss  = 100 #0.01 #100 #0.01
-var_lidar = 0.0025 #25 #0.00025 #1.00
+var_gnss  = 1000 #0.01 #100 #0.01
+var_lidar = 0.25 #25 #0.00025 #1.00
 
 ################################################################################################
 # We can also set up some constants that won't change for any iteration of our solver.
