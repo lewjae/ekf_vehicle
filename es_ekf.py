@@ -51,6 +51,7 @@ lidar = data['lidar']
 # Let's plot the ground truth trajectory to see what it looks like. When you're testing your
 # code later, feel free to comment this out.
 ################################################################################################
+'''
 gt_fig = plt.figure()
 ax = gt_fig.add_subplot(111, projection='3d')
 ax.plot(gt.p[:,0], gt.p[:,1], gt.p[:,2])
@@ -60,7 +61,7 @@ ax.set_zlabel('z [m]')
 ax.set_title('Ground Truth trajectory')
 ax.set_zlim(-1, 5)
 plt.show()
-
+'''
 ################################################################################################
 # Remember that our LIDAR data is actually just a set of positions estimated from a separate
 # scan-matching system, so we can insert it into our solver as another position measurement,
@@ -96,10 +97,10 @@ lidar.data = (C_li @ lidar.data.T).T + t_i_li
 # most important aspects of a filter is setting the estimated sensor variances correctly.
 # We set the values here.
 ################################################################################################
-var_imu_f = 0.10
-var_imu_w = 0.25
-var_gnss  = 0.01
-var_lidar = 1.00
+var_imu_f = 1. #0.10
+var_imu_w = 0.01 #0.25
+var_gnss  = 100 #0.01
+var_lidar = 0.00025 #1.00
 
 ################################################################################################
 # We can also set up some constants that won't change for any iteration of our solver.
@@ -123,15 +124,15 @@ p_cov = np.zeros([imu_f.data.shape[0], 9, 9])  # covariance matrices at each tim
 p_check = p_est[0]
 v_check = v_est[0]
 q_check = q_est[0]
-p_cov_hat = p_cov[0] 
+p_cov_check = p_cov[0] 
 
 # Set initial values.
 p_est[0] = gt.p[0]
 v_est[0] = gt.v[0]
 q_est[0] = Quaternion(euler=gt.r[0]).to_numpy()
 p_cov[0] = np.zeros(9)  # covariance of estimate
-gnss_i  = 0
-lidar_i = 0
+gnss_i  = 1
+lidar_i = 1
 
 #### 4. Measurement Update #####################################################################
 
@@ -143,24 +144,25 @@ def measurement_update(sensor_var, p_cov_check, y_m, p_check, v_check, q_check):
     
     # Do some intialization
     P_k = p_cov_check
-
+    #print("P_k: ", P_k)
     
     # 3.1 Compute Kalman Gain
 
-    H_k = np.zeros([3,9])
-    H_k[:,0:3] = np.eye(3)
+    #H_k = np.zeros([3,9])
+    #H_k[:,0:3] = np.eye(3)
+    H_k = h_jac
 
     M_k = np.eye(3)
 
     R_k = sensor_var * np.eye(3)
 
-    K_k = P_k @ H_k.T @ np.linalg.inv(H_k @ P_k @ H_k.T + M_k @ R_k @ M_k.T)
-
+    K_k = P_k @ H_k.T @ np.linalg.inv(H_k @ P_k @ H_k.T + R_k)
+    #print("K_k: ", K_k)
     # 3.2 Compute error state
     
     y_k  = p_check
     dx_k = K_k @ (y_m - y_k).T
-
+    print("dx_k: ", dx_k)
     # 3.3 Correct predicted state
 
     p_hat = p_check + dx_k[:3]
@@ -170,6 +172,7 @@ def measurement_update(sensor_var, p_cov_check, y_m, p_check, v_check, q_check):
 
     # 3.4 Compute corrected covariance
     p_cov_hat = (np.eye(9) - K_k @ H_k) @ P_k
+
 
     return p_hat, v_hat, q_hat, p_cov_hat
 
@@ -182,12 +185,14 @@ def measurement_update(sensor_var, p_cov_check, y_m, p_check, v_check, q_check):
 
 
 for k in range(1, imu_f.data.shape[0]):  # start at 1 b/c we have initial prediction from gt
+
     delta_t = imu_f.t[k] - imu_f.t[k - 1]
 
 
     # 1. Update state with IMU inputs
 
-    p_check += delta_t * v_check  + delta_t**2*(C_li@imu_f.data[k] + np.array([0, 0, -9.8]))/2
+    C_ns = Quaternion(*q_check).to_mat()
+    p_check += delta_t * v_check  + delta_t**2*(C_ns@imu_f.data[k] + np.array([0, 0, -9.8]))/2
     v_check += delta_t*(C_li@imu_f.data[k] + np.array([0, 0, -9.8]))
     q = Quaternion(euler=imu_w.data[k] * delta_t)
     q_check = q.quat_mult_left(q_check)
@@ -195,33 +200,37 @@ for k in range(1, imu_f.data.shape[0]):  # start at 1 b/c we have initial predic
     # 1.1 Linearize the motion model and compute Jacobians
     F_k = np.eye(9)
     F_k[:3,3:6] = np.eye(3) * delta_t
-    F_k[3:6,6:] = -skew_symmetric(C_li @ imu_f.data[k]) * delta_t
+    F_k[3:6,6:] = -skew_symmetric(C_ns @ imu_f.data[k]) * delta_t
 
-    L_k = np.zeros([9,6])
-    L_k[3:6,:3] = np.eye(3)
-    L_k[6:,3:] = np.eye(3)
+    #L_k = np.zeros([9,6])
+    #L_k[3:6,:3] = np.eye(3)
+    #L_k[6:,3:] = np.eye(3)
+    L_k = l_jac
 
     # 2. Propagate uncertainty
     Q_k = np.zeros([6,6])
     Q_k[:3,:3] = var_imu_f * delta_t**2 * np.eye(3)
     Q_k[3:,3:] = var_imu_w * delta_t**2 * np.eye(3)  #input noise convariance
     
-    p_cov_check = F_k @ p_cov_hat @ F_k.T + L_k @ Q_k  @ L_k.T
+    p_cov_check = F_k @ p_cov_check @ F_k.T + L_k @ Q_k  @ L_k.T
+    #print("p_cov_check: ", p_cov_check)
 
     # 3. Check availability of GNSS and LIDAR measurements
-    
-    if imu_f.t[k] == lidar.t[lidar_i]:
+    #print(imu_f.t[k-1], lidar.t[lidar_i], gnss.t[gnss_i])
+    if lidar_i <  lidar.t.shape[0] and imu_f.t[k] == lidar.t[lidar_i]:
         ym = lidar.data[lidar_i]
-        sensor_var = var_lidar
         lidar_i += 1
-        p_check, v_check, q_check, p_cov_check =  measurement_update(sensor_var, p_cov_check, ym, p_check, v_check, q_check)
-    if imu_f.t[k] == gnss.t[gnss_i]:
-        ym = gnss.data[gnss_i]
-        sensor_var = var_gnss   
+        p_check, v_check, q_check, p_cov_check =  measurement_update(var_lidar, p_cov_check, ym, p_check, v_check, q_check)
+        print("updated with lidar ", p_check)
+
+    if  gnss_i < gnss.t.shape[0] and imu_f.t[k] == gnss.t[gnss_i]:
+        ym = gnss.data[gnss_i]  
         gnss_i += 1
-        p_check, v_check, q_check, p_cov_check =  measurement_update(sensor_var, p_cov_check, ym, p_check, v_check, q_check)
+        p_check, v_check, q_check, p_cov_check =  measurement_update(var_gnss, p_cov_check, ym, p_check, v_check, q_check)
+        print("updated with gnss ", p_check)
+
     # Update states (save)
-    
+    print("model only ", p_check)
     #p_hat, v_hat, q_hat, p_cov_hat =  measurement_update(sensor_var, p_cov_check, ym, p_check, v_check, q_check)
     p_est[k,:] = p_check 
     v_est[k,:] = v_check 
