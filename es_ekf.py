@@ -14,7 +14,7 @@ from rotations import angle_normalize, rpy_jacobian_axis_angle, skew_symmetric, 
 # This is where you will load the data from the pickle files. For parts 1 and 2, you will use
 # p1_data.pkl. For Part 3, you will use pt3_data.pkl.
 ################################################################################################
-with open('data/pt1_data.pkl', 'rb') as file:
+with open('data/pt3_data.pkl', 'rb') as file:
     data = pickle.load(file)
 
 ################################################################################################
@@ -72,19 +72,20 @@ plt.show()
 # THIS IS THE CODE YOU WILL MODIFY FOR PART 2 OF THE ASSIGNMENT.
 ################################################################################################
 # Correct calibration rotation matrix, corresponding to Euler RPY angles (0.05, 0.05, 0.1).
+
 C_li = np.array([
    [ 0.99376, -0.09722,  0.05466],
    [ 0.09971,  0.99401, -0.04475],
    [-0.04998,  0.04992,  0.9975 ]
 ])
-
+"""
 # Incorrect calibration rotation matrix, corresponding to Euler RPY angles (0.05, 0.05, 0.05).
-# C_li = np.array([
-#      [ 0.9975 , -0.04742,  0.05235],
-#      [ 0.04992,  0.99763, -0.04742],
-#      [-0.04998,  0.04992,  0.9975 ]
-# ])
-
+C_li = np.array([
+      [ 0.9975 , -0.04742,  0.05235],
+      [ 0.04992,  0.99763, -0.04742],
+      [-0.04998,  0.04992,  0.9975 ]
+ ])
+"""
 t_i_li = np.array([0.5, 0.1, 0.5])
 
 # Transform from the LIDAR frame to the vehicle (IMU) frame.
@@ -97,10 +98,10 @@ lidar.data = (C_li @ lidar.data.T).T + t_i_li
 # most important aspects of a filter is setting the estimated sensor variances correctly.
 # We set the values here.
 ################################################################################################
-var_imu_f = 1. #0.10
-var_imu_w = 0.01 #0.25
-var_gnss  = 100 #0.01
-var_lidar = 0.00025 #1.00
+var_imu_f = 1.0 #10. #1. #0.10
+var_imu_w = 0.01 #0.01 #0.01 #0.25
+var_gnss  = 100 #0.01 #100 #0.01
+var_lidar = 0.0025 #25 #0.00025 #1.00
 
 ################################################################################################
 # We can also set up some constants that won't change for any iteration of our solver.
@@ -165,6 +166,7 @@ def measurement_update(sensor_var, p_cov_check, y_m, p_check, v_check, q_check):
     print("dx_k: ", dx_k)
     # 3.3 Correct predicted state
 
+
     p_hat = p_check + dx_k[:3]
     v_hat = v_check + dx_k[3:6]
     q = Quaternion(axis_angle = dx_k[6:] )
@@ -182,7 +184,7 @@ def measurement_update(sensor_var, p_cov_check, y_m, p_check, v_check, q_check):
 # Now that everything is set up, we can start taking in the sensor data and creating estimates
 # for our state in a loop.
 ################################################################################################
-
+from termcolor import colored
 
 for k in range(1, imu_f.data.shape[0]):  # start at 1 b/c we have initial prediction from gt
 
@@ -227,10 +229,10 @@ for k in range(1, imu_f.data.shape[0]):  # start at 1 b/c we have initial predic
         ym = gnss.data[gnss_i]  
         gnss_i += 1
         p_check, v_check, q_check, p_cov_check =  measurement_update(var_gnss, p_cov_check, ym, p_check, v_check, q_check)
-        print("updated with gnss ", p_check)
+        print(colored("updated with gnss ",'red'), p_check)
 
     # Update states (save)
-    print("model only ", p_check)
+    #print("model only ", p_check)
     #p_hat, v_hat, q_hat, p_cov_hat =  measurement_update(sensor_var, p_cov_check, ym, p_check, v_check, q_check)
     p_est[k,:] = p_check 
     v_est[k,:] = v_check 
@@ -314,6 +316,7 @@ plt.show()
 # that corresponds to what we're expecting on Coursera.
 ################################################################################################
 
+"""
 # Pt. 1 submission
 p1_indices = [9000, 9400, 9800, 10200, 10600]
 p1_str = ''
@@ -324,19 +327,19 @@ with open('pt1_submission.txt', 'w') as file:
     file.write(p1_str)
 
 # Pt. 2 submission
-# p2_indices = [9000, 9400, 9800, 10200, 10600]
-# p2_str = ''
-# for val in p2_indices:
-#     for i in range(3):
-#         p2_str += '%.3f ' % (p_est[val, i])
-# with open('pt2_submission.txt', 'w') as file:
-#     file.write(p2_str)
-
+p2_indices = [9000, 9400, 9800, 10200, 10600]
+p2_str = ''
+for val in p2_indices:
+    for i in range(3):
+        p2_str += '%.3f ' % (p_est[val, i])
+with open('pt2_submission.txt', 'w') as file:
+     file.write(p2_str)
+"""
 # Pt. 3 submission
-# p3_indices = [6800, 7600, 8400, 9200, 10000]
-# p3_str = ''
-# for val in p3_indices:
-#     for i in range(3):
-#         p3_str += '%.3f ' % (p_est[val, i])
-# with open('pt3_submission.txt', 'w') as file:
-#     file.write(p3_str)
+p3_indices = [6800, 7600, 8400, 9200, 10000]
+p3_str = ''
+for val in p3_indices:
+    for i in range(3):
+        p3_str += '%.3f ' % (p_est[val, i])
+with open('pt3_submission.txt', 'w') as file:
+     file.write(p3_str)
