@@ -47,21 +47,29 @@ imu_w = data['imu_w']
 gnss = data['gnss']
 lidar = data['lidar']
 
+
 ################################################################################################
 # Let's plot the ground truth trajectory to see what it looks like. When you're testing your
 # code later, feel free to comment this out.
 ################################################################################################
-'''
+"""
 gt_fig = plt.figure()
 ax = gt_fig.add_subplot(111, projection='3d')
 ax.plot(gt.p[:,0], gt.p[:,1], gt.p[:,2])
+ax.plot(lidar.data[:,0],lidar.data[:,1], lidar.data[:,2],color='r')
+ax.plot(gnss.data[:,0], gnss.data[:,1], gnss.data[:,2], color='b')
+
 ax.set_xlabel('x [m]')
 ax.set_ylabel('y [m]')
 ax.set_zlabel('z [m]')
 ax.set_title('Ground Truth trajectory')
 ax.set_zlim(-1, 5)
 plt.show()
-'''
+"""
+
+
+
+
 ################################################################################################
 # Remember that our LIDAR data is actually just a set of positions estimated from a separate
 # scan-matching system, so we can insert it into our solver as another position measurement,
@@ -97,10 +105,10 @@ lidar.data = (C_li @ lidar.data.T).T + t_i_li
 # most important aspects of a filter is setting the estimated sensor variances correctly.
 # We set the values here.
 ################################################################################################
-var_imu_f = 1. #0.10
-var_imu_w = 0.01 #0.25
-var_gnss  = 100 #0.01
-var_lidar = 0.00025 #1.00
+var_imu_f = 0.1 #0.10
+var_imu_w = 0.25 #0.25
+var_gnss  = 1. #0.01
+var_lidar = 0.001 #1.00
 
 ################################################################################################
 # We can also set up some constants that won't change for any iteration of our solver.
@@ -216,7 +224,7 @@ for k in range(1, imu_f.data.shape[0]):  # start at 1 b/c we have initial predic
     #print("p_cov_check: ", p_cov_check)
 
     # 3. Check availability of GNSS and LIDAR measurements
-    #print(imu_f.t[k-1], lidar.t[lidar_i], gnss.t[gnss_i])
+    
     if lidar_i <  lidar.t.shape[0] and imu_f.t[k] == lidar.t[lidar_i]:
         ym = lidar.data[lidar_i]
         lidar_i += 1
@@ -228,7 +236,7 @@ for k in range(1, imu_f.data.shape[0]):  # start at 1 b/c we have initial predic
         gnss_i += 1
         p_check, v_check, q_check, p_cov_check =  measurement_update(var_gnss, p_cov_check, ym, p_check, v_check, q_check)
         print("updated with gnss ", p_check)
-
+    
     # Update states (save)
     print("model only ", p_check)
     #p_hat, v_hat, q_hat, p_cov_hat =  measurement_update(sensor_var, p_cov_check, ym, p_check, v_check, q_check)
@@ -249,6 +257,7 @@ est_traj_fig = plt.figure()
 ax = est_traj_fig.add_subplot(111, projection='3d')
 ax.plot(p_est[:,0], p_est[:,1], p_est[:,2], label='Estimated')
 ax.plot(gt.p[:,0], gt.p[:,1], gt.p[:,2], label='Ground Truth')
+ax.plot(gnss.data[:,0], gnss.data[:,1], gnss.data[:,2], label='gnss')
 ax.set_xlabel('Easting [m]')
 ax.set_ylabel('Northing [m]')
 ax.set_zlabel('Up [m]')
