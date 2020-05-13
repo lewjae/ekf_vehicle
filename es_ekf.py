@@ -107,8 +107,8 @@ lidar.data = (C_li @ lidar.data.T).T + t_i_li
 ################################################################################################
 var_imu_f = 0.1 #0.10
 var_imu_w = 0.25 #0.25
-var_gnss  = 1. #0.01
-var_lidar = 0.001 #1.00
+var_gnss  = 1000. #0.01
+var_lidar = 0.00025 #1.00
 
 ################################################################################################
 # We can also set up some constants that won't change for any iteration of our solver.
@@ -238,7 +238,7 @@ for k in range(1, imu_f.data.shape[0]):  # start at 1 b/c we have initial predic
         print("updated with gnss ", p_check)
     
     # Update states (save)
-    print("model only ", p_check)
+    #print("model only ", p_check)
     #p_hat, v_hat, q_hat, p_cov_hat =  measurement_update(sensor_var, p_cov_check, ym, p_check, v_check, q_check)
     p_est[k,:] = p_check 
     v_est[k,:] = v_check 
