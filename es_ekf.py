@@ -105,10 +105,10 @@ lidar.data = (C_li @ lidar.data.T).T + t_i_li
 # most important aspects of a filter is setting the estimated sensor variances correctly.
 # We set the values here.
 ################################################################################################
-var_imu_f = 0.1 #0.10
-var_imu_w = 0.25 #0.25
-var_gnss  = 1000. #0.01
-var_lidar = 0.00025 #1.00
+var_imu_f = 100. #0.10
+var_imu_w = 0.01 #0.25
+var_gnss  = 0.001 #0.01
+var_lidar = 250 #1.00
 
 ################################################################################################
 # We can also set up some constants that won't change for any iteration of our solver.
@@ -326,20 +326,21 @@ plt.show()
 # Pt. 1 submission
 p1_indices = [9000, 9400, 9800, 10200, 10600]
 p1_str = ''
+"""
 for val in p1_indices:
     for i in range(3):
         p1_str += '%.3f ' % (p_est[val, i])
 with open('pt1_submission.txt', 'w') as file:
     file.write(p1_str)
-
+"""
 # Pt. 2 submission
-# p2_indices = [9000, 9400, 9800, 10200, 10600]
-# p2_str = ''
-# for val in p2_indices:
-#     for i in range(3):
-#         p2_str += '%.3f ' % (p_est[val, i])
-# with open('pt2_submission.txt', 'w') as file:
-#     file.write(p2_str)
+p2_indices = [9000, 9400, 9800, 10200, 10600]
+p2_str = ''
+for val in p2_indices:
+    for i in range(3):
+        p2_str += '%.3f ' % (p_est[val, i])
+with open('pt2_submission.txt', 'w') as file:
+    file.write(p2_str)
 
 # Pt. 3 submission
 # p3_indices = [6800, 7600, 8400, 9200, 10000]
