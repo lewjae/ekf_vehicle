@@ -98,10 +98,10 @@ lidar.data = (C_li @ lidar.data.T).T + t_i_li
 # most important aspects of a filter is setting the estimated sensor variances correctly.
 # We set the values here.
 ################################################################################################
-var_imu_f = 1. #10. #1. #0.10
-var_imu_w = 0.01 #0.01 #0.01 #0.25
-var_gnss  = 1000 #0.01 #100 #0.01
-var_lidar = 0.25 #25 #0.00025 #1.00
+var_imu_f = 0.1 #10. #1. #0.10
+var_imu_w = 0.1 #0.01 #0.01 #0.25
+var_gnss  = 0.001 #0.01 #100 #0.01
+var_lidar = 0.025*0.001 #25 #0.00025 #1.00
 
 ################################################################################################
 # We can also set up some constants that won't change for any iteration of our solver.
@@ -219,18 +219,19 @@ for k in range(1, imu_f.data.shape[0]):  # start at 1 b/c we have initial predic
 
     # 3. Check availability of GNSS and LIDAR measurements
     #print(imu_f.t[k-1], lidar.t[lidar_i], gnss.t[gnss_i])
+    
     if lidar_i <  lidar.t.shape[0] and imu_f.t[k] == lidar.t[lidar_i]:
         ym = lidar.data[lidar_i]
         lidar_i += 1
         p_check, v_check, q_check, p_cov_check =  measurement_update(var_lidar, p_cov_check, ym, p_check, v_check, q_check)
         print("updated with lidar ", p_check)
-
+    
     if  gnss_i < gnss.t.shape[0] and imu_f.t[k] == gnss.t[gnss_i]:
         ym = gnss.data[gnss_i]  
         gnss_i += 1
         p_check, v_check, q_check, p_cov_check =  measurement_update(var_gnss, p_cov_check, ym, p_check, v_check, q_check)
         print(colored("updated with gnss ",'red'), p_check)
-
+    
     # Update states (save)
     #print("model only ", p_check)
     #p_hat, v_hat, q_hat, p_cov_hat =  measurement_update(sensor_var, p_cov_check, ym, p_check, v_check, q_check)
